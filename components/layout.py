@@ -5,6 +5,23 @@ import dash_bootstrap_components as dbc
 from data_loader import num_nodes, num_edges, density, clustering_coef, reciprocity
 
 
+# Centrality measure descriptions for info popovers
+MEASURE_INFO = {
+    'eigenvector': {
+        'title': 'Eigenvector Centrality',
+        'description': 'Measures influence through connections to other economically important states. High scores indicate structural power through relationships with economic powerhouses.'
+    },
+    'out_degree': {
+        'title': 'Weighted Out-Degree',
+        'description': 'Quantifies direct distribution capacity—total outbound trade value. Closely tracks GDP but reveals trade-specific production capacity.'
+    },
+    'betweenness': {
+        'title': 'Betweenness Centrality',
+        'description': 'Identifies states occupying bridging positions between regional clusters. Uses weight inversion (high trade = short distance) for meaningful computation.'
+    }
+}
+
+
 def create_layout():
     """Create the main application layout."""
     return html.Div([
@@ -13,8 +30,10 @@ def create_layout():
         dcc.Store(id='show-edges-store', data=False),
         dcc.Store(id='table-expanded', data=False),
         dcc.Store(id='selected-measure', data='eigenvector'),
-        dcc.Store(id='app-mode', data='explore'),
         dcc.Store(id='network-type', data='51x51'),  # '51x51' or '52x52'
+        dcc.Store(id='insight-visible', data=True),  # For floating insight card
+        dcc.Store(id='insight-timestamp', data=0),   # Track when to auto-hide
+        dcc.Interval(id='insight-timer', interval=1000, n_intervals=0),  # 1s timer for auto-hide
 
         # Main container
         html.Div(id='main-container', className='theme-light', children=[
@@ -28,18 +47,8 @@ def create_layout():
                 style={'height': '100%', 'width': '100%'}
             ),
 
-            # Floating controls (top-left)
+            # Floating controls (top-left) - COMPACT, never expands
             html.Div(id='floating-controls', children=[
-                # Mode toggle
-                html.Div([
-                    dbc.ButtonGroup([
-                        dbc.Button("🔍 Explore", id="btn-explore", color="light", size="sm",
-                                  outline=False, className="mode-btn"),
-                        dbc.Button("📊 Analyze", id="btn-analyze", color="light", size="sm",
-                                  outline=True, className="mode-btn"),
-                    ], size="sm", className="w-100 mb-3")
-                ]),
-
                 # Title
                 html.Div([
                     html.H5("U.S. Interstate Trade", className="mb-0 text-white",
@@ -47,17 +56,53 @@ def create_layout():
                     html.Small("Network Analysis", className="text-muted")
                 ], className="mb-3"),
 
-                # Measure selector
+                # Measure selector with info icons
                 html.Div([
                     html.Label("Centrality Measure", className="text-muted small mb-2 d-block"),
                     html.Div([
-                        dbc.Button("Eigenvector", id="btn-eigen", color="light", size="sm",
-                                  className="me-1", n_clicks=0, outline=False),
-                        dbc.Button("Out-Degree", id="btn-outdeg", color="light", size="sm",
-                                  className="me-1", n_clicks=0, outline=True),
-                        dbc.Button("Betweenness", id="btn-between", color="light", size="sm",
-                                  n_clicks=0, outline=True),
-                    ], className="measure-pills")
+                        # Eigenvector button + info
+                        html.Span([
+                            dbc.Button("Eigenvector", id="btn-eigen", color="light", size="sm",
+                                      className="me-1", n_clicks=0, outline=False),
+                            html.Span("ⓘ", id="info-eigen", className="info-icon",
+                                     style={'cursor': 'pointer', 'marginRight': '4px'}),
+                        ]),
+                        dbc.Popover(
+                            [
+                                dbc.PopoverHeader(MEASURE_INFO['eigenvector']['title']),
+                                dbc.PopoverBody(MEASURE_INFO['eigenvector']['description'])
+                            ],
+                            target="info-eigen", trigger="click", placement="right"
+                        ),
+                        # Out-Degree button + info
+                        html.Span([
+                            dbc.Button("Out-Degree", id="btn-outdeg", color="light", size="sm",
+                                      className="me-1", n_clicks=0, outline=True),
+                            html.Span("ⓘ", id="info-outdeg", className="info-icon",
+                                     style={'cursor': 'pointer', 'marginRight': '4px'}),
+                        ]),
+                        dbc.Popover(
+                            [
+                                dbc.PopoverHeader(MEASURE_INFO['out_degree']['title']),
+                                dbc.PopoverBody(MEASURE_INFO['out_degree']['description'])
+                            ],
+                            target="info-outdeg", trigger="click", placement="right"
+                        ),
+                        # Betweenness button + info
+                        html.Span([
+                            dbc.Button("Betweenness", id="btn-between", color="light", size="sm",
+                                      n_clicks=0, outline=True),
+                            html.Span("ⓘ", id="info-between", className="info-icon",
+                                     style={'cursor': 'pointer', 'marginLeft': '4px'}),
+                        ]),
+                        dbc.Popover(
+                            [
+                                dbc.PopoverHeader(MEASURE_INFO['betweenness']['title']),
+                                dbc.PopoverBody(MEASURE_INFO['betweenness']['description'])
+                            ],
+                            target="info-between", trigger="click", placement="right"
+                        ),
+                    ], className="measure-pills", style={'display': 'flex', 'flexWrap': 'wrap', 'alignItems': 'center'})
                 ], className="mb-3"),
 
                 # Boundary sensitivity toggle (51x51 vs 52x52)
@@ -70,9 +115,6 @@ def create_layout():
                                   outline=True, className="mode-btn"),
                     ], size="sm", className="w-100")
                 ], className="mb-3"),
-
-                # Interpretation guide (Analyze mode only)
-                html.Div(id='interpretation-section', style={'display': 'none'}),
 
                 # Filtration slider (only for betweenness)
                 html.Div(id='filtration-section', children=[
@@ -127,8 +169,18 @@ def create_layout():
                 'borderRadius': '12px',
                 'padding': '16px',
                 'minWidth': '200px',
+                'maxWidth': '240px',  # Constrain width
                 'boxShadow': '0 4px 20px rgba(0,0,0,0.3)'
             }),
+
+            # Floating insight card (bottom-right)
+            html.Div(id='insight-card', children=[
+                html.Div([
+                    html.Span("KEY INSIGHT", className="insight-card-label"),
+                    html.Button("×", id='dismiss-insight', className="insight-dismiss-btn")
+                ], className="insight-card-header"),
+                html.Div(id='insight-card-content', className="insight-card-body")
+            ], className="insight-card", style={'display': 'block'}),
 
             # State detail drawer (right side)
             html.Div(id='state-drawer', className="state-drawer hidden", children=[
@@ -156,39 +208,10 @@ def create_layout():
                 ], className="p-3")
             ]),
 
-            # Stats badge (bottom-left) - Explore mode
+            # Stats badge (bottom-left) - always visible, compact
             html.Div([
-                html.Span(f"{num_nodes} states • {num_edges:,} trade flows • {density:.1%} connected")
+                html.Span(f"{num_nodes} states • {num_edges:,} edges • {density:.1%} density • {clustering_coef:.3f} clustering")
             ], className="stats-badge", id='stats-badge'),
-
-            # Expanded stats panel (bottom-left) - Analyze mode
-            html.Div(id='stats-panel-expanded', children=[
-                html.Div([
-                    html.Div("Network Metrics", className="stats-panel-title"),
-                    html.Div([
-                        html.Div([
-                            html.Span(f"{num_nodes}", className="stat-value"),
-                            html.Span("States", className="stat-label")
-                        ], className="stat-item"),
-                        html.Div([
-                            html.Span(f"{num_edges:,}", className="stat-value"),
-                            html.Span("Edges", className="stat-label")
-                        ], className="stat-item"),
-                        html.Div([
-                            html.Span(f"{density:.1%}", className="stat-value"),
-                            html.Span("Density", className="stat-label")
-                        ], className="stat-item"),
-                        html.Div([
-                            html.Span(f"{clustering_coef:.3f}", className="stat-value"),
-                            html.Span("Clustering", className="stat-label")
-                        ], className="stat-item"),
-                        html.Div([
-                            html.Span(f"{reciprocity:.1%}", className="stat-value"),
-                            html.Span("Reciprocity", className="stat-label")
-                        ], className="stat-item"),
-                    ], className="stats-grid")
-                ])
-            ], className="stats-panel-expanded", style={'display': 'none'}),
 
         ], style={
             'height': '100vh',

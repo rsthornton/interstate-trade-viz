@@ -435,4 +435,120 @@ CUSTOM_CSS = """
     background: rgba(255,255,255,0.1);
     color: rgba(255,255,255,0.6);
 }
+
+/* Info icons for centrality measures */
+.info-icon {
+    font-size: 12px;
+    color: rgba(255,255,255,0.4);
+    cursor: pointer;
+    transition: color 0.2s ease;
+    vertical-align: middle;
+}
+
+.info-icon:hover {
+    color: rgba(255,255,255,0.8);
+}
+
+.theme-light .info-icon {
+    color: rgba(0,0,0,0.3);
+}
+
+.theme-light .info-icon:hover {
+    color: rgba(0,0,0,0.7);
+}
+
+/* Floating insight card (bottom-right) */
+.insight-card {
+    position: absolute;
+    bottom: 80px;
+    right: 20px;
+    z-index: 997;
+    background: rgba(26, 26, 46, 0.95);
+    backdrop-filter: blur(10px);
+    border-radius: 10px;
+    padding: 0;
+    max-width: 220px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+    border-left: 3px solid #667eea;
+    transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.insight-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 12px;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+}
+
+.insight-card-label {
+    font-size: 9px;
+    font-weight: 600;
+    color: #667eea;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.insight-dismiss-btn {
+    background: none;
+    border: none;
+    color: rgba(255,255,255,0.4);
+    font-size: 16px;
+    cursor: pointer;
+    padding: 0;
+    line-height: 1;
+    transition: color 0.2s ease;
+}
+
+.insight-dismiss-btn:hover {
+    color: rgba(255,255,255,0.8);
+}
+
+.insight-card-body {
+    padding: 10px 12px;
+    font-size: 12px;
+    color: rgba(255,255,255,0.85);
+    line-height: 1.5;
+}
+
+/* Light mode for insight card */
+.theme-light .insight-card {
+    background: rgba(255, 255, 255, 0.95);
+    border-left-color: #5a67d8;
+}
+
+.theme-light .insight-card-header {
+    border-bottom: 1px solid rgba(0,0,0,0.1);
+}
+
+.theme-light .insight-card-label {
+    color: #5a67d8;
+}
+
+.theme-light .insight-dismiss-btn {
+    color: rgba(0,0,0,0.3);
+}
+
+.theme-light .insight-dismiss-btn:hover {
+    color: rgba(0,0,0,0.7);
+}
+
+.theme-light .insight-card-body {
+    color: #444;
+}
+
+/* Popover styling */
+.popover {
+    max-width: 280px;
+}
+
+.popover-header {
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.popover-body {
+    font-size: 12px;
+    line-height: 1.5;
+}
 """

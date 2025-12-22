@@ -1,12 +1,21 @@
 """Dash callbacks for user interactions."""
 
-from dash import html, callback, Output, Input, State, ctx, dash_table
+import time
+from dash import html, callback, Output, Input, State, ctx, dash_table, no_update
 from components.map import create_network_map
 from data_loader import (
     centralities_base, centralities_51x51, centralities_52x52, rank_changes,
     coords, network, gdp, filtration_data,
     get_top_edges
 )
+
+
+# Key insights for each measure (shown in floating card)
+MEASURE_INSIGHTS = {
+    'eigenvector': 'Robust across network changes (ρ > 0.98). Iowa: #31 GDP → #13 Eigenvector',
+    'out_degree': 'High GDP alignment expected. FL (#4 GDP, #14 OutDeg) reveals consumption vs production hubs.',
+    'betweenness': 'CA and TX dominate as national trade bridges. Rankings stable under filtration.'
+}
 
 
 def _format_divergence(gdp_rank, centrality_rank, text_color):
@@ -45,27 +54,9 @@ def _format_divergence(gdp_rank, centrality_rank, text_color):
 def register_callbacks(app):
     """Register all callbacks with the Dash app."""
 
-    @app.callback(
-        Output('btn-explore', 'outline'),
-        Output('btn-analyze', 'outline'),
-        Output('btn-explore', 'color'),
-        Output('btn-analyze', 'color'),
-        Output('app-mode', 'data'),
-        Input('btn-explore', 'n_clicks'),
-        Input('btn-analyze', 'n_clicks'),
-        Input('dark-mode-toggle', 'value'),
-    )
-    def toggle_app_mode(explore_clicks, analyze_clicks, dark_mode):
-        """Toggle between Explore and Analyze modes."""
-        triggered = ctx.triggered_id
-
-        btn_color = 'light' if dark_mode else 'secondary'
-
-        if triggered == 'btn-analyze':
-            return True, False, btn_color, btn_color, 'analyze'
-        else:
-            return False, True, btn_color, btn_color, 'explore'
-
+    # =========================================================================
+    # NETWORK TYPE TOGGLE (51x51 vs 52x52)
+    # =========================================================================
     @app.callback(
         Output('btn-51x51', 'outline'),
         Output('btn-52x52', 'outline'),
@@ -87,89 +78,9 @@ def register_callbacks(app):
         else:
             return False, True, btn_color, btn_color, '51x51'
 
-    @app.callback(
-        Output('interpretation-section', 'children'),
-        Output('interpretation-section', 'style'),
-        Input('app-mode', 'data'),
-        Input('selected-measure', 'data'),
-        Input('dark-mode-toggle', 'value'),
-    )
-    def update_interpretation(mode, measure, dark_mode):
-        """Show interpretation guide in Analyze mode."""
-        if mode != 'analyze':
-            return [], {'display': 'none'}
-
-        if measure is None:
-            measure = 'eigenvector'
-
-        interpretations = {
-            'eigenvector': {
-                'title': 'Eigenvector Centrality',
-                'text': 'Measures influence through connections to other economically important states. High scores indicate structural power through relationships with economic powerhouses.',
-                'insight_label': 'Key Insight',
-                'insight_value': 'Robust across network changes (ρ > 0.98). Iowa: #31 GDP → #13 Eigenvector'
-            },
-            'out_degree': {
-                'title': 'Weighted Out-Degree',
-                'text': 'Quantifies direct distribution capacity—total outbound trade value. Closely tracks GDP but reveals trade-specific production capacity.',
-                'insight_label': 'Key Insight',
-                'insight_value': 'High GDP alignment expected. Exceptions like FL (#4 GDP, #14 OutDeg) reveal consumption vs production hubs.'
-            },
-            'betweenness': {
-                'title': 'Betweenness Centrality',
-                'text': 'Identifies states occupying bridging positions between regional clusters. Uses weight inversion (high trade = short distance) for meaningful computation.',
-                'insight_label': 'Key Insight',
-                'insight_value': 'Rankings stable under filtration. CA and TX dominate as national trade bridges.'
-            }
-        }
-
-        info = interpretations.get(measure, interpretations['eigenvector'])
-
-        content = html.Div([
-            html.Div([
-                html.Div(info['title'], className="interpretation-title"),
-                html.P(info['text'], className="interpretation-text"),
-            ], className="interpretation-card"),
-            html.Div([
-                html.Div(info['insight_label'], className="insight-label"),
-                html.Div(info['insight_value'], className="insight-value")
-            ], className="insight-highlight")
-        ])
-
-        return content, {'display': 'block', 'marginBottom': '12px'}
-
-    @app.callback(
-        Output('stats-badge', 'style'),
-        Output('stats-panel-expanded', 'style'),
-        Input('app-mode', 'data'),
-        Input('selected-state', 'data'),
-        Input('dark-mode-toggle', 'value'),
-    )
-    def toggle_stats_display(mode, selected_state, dark_mode):
-        """Switch between simple badge and expanded stats panel."""
-        if selected_state:
-            return {'display': 'none'}, {'display': 'none'}
-
-        if mode == 'analyze':
-            badge_style = {'display': 'none'}
-            panel_style = {
-                'display': 'block',
-                'position': 'absolute',
-                'bottom': '20px',
-                'left': '20px',
-                'zIndex': '998',
-                'background': 'rgba(26, 26, 46, 0.9)' if dark_mode else 'rgba(255, 255, 255, 0.95)',
-                'backdropFilter': 'blur(10px)',
-                'borderRadius': '12px',
-                'padding': '16px',
-                'minWidth': '280px'
-            }
-        else:
-            badge_style = {'display': 'block'}
-            panel_style = {'display': 'none'}
-
-        return badge_style, panel_style
-
+    # =========================================================================
+    # CENTRALITY MEASURE SELECTION
+    # =========================================================================
     @app.callback(
         Output('btn-eigen', 'color'),
         Output('btn-outdeg', 'color'),
@@ -179,13 +90,15 @@ def register_callbacks(app):
         Output('btn-between', 'outline'),
         Output('filtration-section', 'style'),
         Output('selected-measure', 'data'),
+        Output('insight-visible', 'data'),
+        Output('insight-timestamp', 'data'),
         Input('btn-eigen', 'n_clicks'),
         Input('btn-outdeg', 'n_clicks'),
         Input('btn-between', 'n_clicks'),
         Input('dark-mode-toggle', 'value'),
     )
     def update_measure_buttons(n1, n2, n3, dark_mode):
-        """Update button states and show/hide filtration."""
+        """Update button states, show/hide filtration, and trigger insight card."""
         triggered = ctx.triggered_id
 
         if triggered == 'btn-outdeg':
@@ -203,8 +116,82 @@ def register_callbacks(app):
 
         filtration_style = {'display': 'block'} if selected == 'betweenness' else {'display': 'none'}
 
-        return btn_color, btn_color, btn_color, eigen_outline, outdeg_outline, between_outline, filtration_style, selected
+        # Show insight card and reset timer when measure changes
+        show_insight = True
+        timestamp = time.time()
 
+        return (btn_color, btn_color, btn_color, eigen_outline, outdeg_outline,
+                between_outline, filtration_style, selected, show_insight, timestamp)
+
+    # =========================================================================
+    # FLOATING INSIGHT CARD
+    # =========================================================================
+    @app.callback(
+        Output('insight-card-content', 'children'),
+        Input('selected-measure', 'data'),
+    )
+    def update_insight_content(measure):
+        """Update the insight card content based on selected measure."""
+        if measure is None:
+            measure = 'eigenvector'
+        return MEASURE_INSIGHTS.get(measure, MEASURE_INSIGHTS['eigenvector'])
+
+    @app.callback(
+        Output('insight-card', 'style'),
+        Input('insight-visible', 'data'),
+        Input('dismiss-insight', 'n_clicks'),
+        Input('insight-timer', 'n_intervals'),
+        State('insight-timestamp', 'data'),
+        State('dark-mode-toggle', 'value'),
+    )
+    def update_insight_visibility(visible, dismiss_clicks, n_intervals, timestamp, dark_mode):
+        """Control insight card visibility with auto-hide after 8 seconds."""
+        triggered = ctx.triggered_id
+
+        # Base style
+        base_style = {
+            'position': 'absolute',
+            'bottom': '80px',
+            'right': '20px',
+            'zIndex': '1001',
+            'maxWidth': '220px',
+            'background': 'rgba(26, 26, 46, 0.95)' if dark_mode else 'rgba(255, 255, 255, 0.98)',
+            'backdropFilter': 'blur(10px)',
+            'borderRadius': '10px',
+            'padding': '12px',
+            'boxShadow': '0 4px 20px rgba(0,0,0,0.3)' if dark_mode else '0 4px 20px rgba(0,0,0,0.15)',
+            'transition': 'opacity 0.3s ease, transform 0.3s ease',
+        }
+
+        # If dismissed, hide
+        if triggered == 'dismiss-insight':
+            base_style['opacity'] = '0'
+            base_style['transform'] = 'translateY(10px)'
+            base_style['pointerEvents'] = 'none'
+            return base_style
+
+        # Auto-hide after 8 seconds
+        if timestamp and (time.time() - timestamp) > 8:
+            base_style['opacity'] = '0'
+            base_style['transform'] = 'translateY(10px)'
+            base_style['pointerEvents'] = 'none'
+            return base_style
+
+        # Show if visible
+        if visible:
+            base_style['opacity'] = '1'
+            base_style['transform'] = 'translateY(0)'
+            return base_style
+
+        # Default: hidden
+        base_style['opacity'] = '0'
+        base_style['transform'] = 'translateY(10px)'
+        base_style['pointerEvents'] = 'none'
+        return base_style
+
+    # =========================================================================
+    # EDGE TOGGLE
+    # =========================================================================
     @app.callback(
         Output('edge-count-section', 'style'),
         Input('edge-toggle', 'value')
@@ -214,6 +201,9 @@ def register_callbacks(app):
             return {'display': 'block', 'marginTop': '8px'}
         return {'display': 'none'}
 
+    # =========================================================================
+    # MAP UPDATE
+    # =========================================================================
     @app.callback(
         Output('network-map', 'figure'),
         Input('selected-measure', 'data'),
@@ -289,6 +279,9 @@ def register_callbacks(app):
 
         return fig
 
+    # =========================================================================
+    # STATE SELECTION (map click or table click)
+    # =========================================================================
     @app.callback(
         Output('selected-state', 'data'),
         Input('network-map', 'clickData'),
@@ -325,6 +318,9 @@ def register_callbacks(app):
 
         return current_state
 
+    # =========================================================================
+    # STATE DRAWER
+    # =========================================================================
     @app.callback(
         Output('state-drawer', 'style'),
         Output('drawer-state-name', 'children'),
@@ -333,14 +329,11 @@ def register_callbacks(app):
         Input('selected-state', 'data'),
         Input('selected-measure', 'data'),
         Input('dark-mode-toggle', 'value'),
-        Input('app-mode', 'data'),
     )
-    def update_drawer(selected_state, measure, dark_mode, app_mode):
+    def update_drawer(selected_state, measure, dark_mode):
         """Update the state detail drawer."""
         if measure is None:
             measure = 'eigenvector'
-        if app_mode is None:
-            app_mode = 'explore'
 
         if dark_mode:
             base_style = {
@@ -477,7 +470,8 @@ def register_callbacks(app):
                 ])
             ]),
 
-            html.Div(id='gdp-divergence-section', children=[
+            # Always show GDP divergence section
+            html.Div(children=[
                 html.Hr(style={'borderColor': border_color, 'margin': '16px 0'}),
                 html.Label("GDP vs Centrality Divergence", style={'color': muted_color, 'fontSize': '12px', 'marginBottom': '8px', 'display': 'block'}),
                 html.Div([
@@ -502,11 +496,14 @@ def register_callbacks(app):
                 ], style={'background': bg_subtle, 'borderRadius': '8px', 'padding': '12px'}),
                 html.Small("Green = outperforms GDP rank, Red = underperforms",
                           style={'color': muted_color, 'fontSize': '10px', 'marginTop': '8px', 'display': 'block'})
-            ], style={'display': 'block' if (app_mode == 'analyze' and gdp_rank is not None) else 'none'})
+            ]) if gdp_rank is not None else None
         ])
 
         return base_style, state_name, f"({selected_state})", content
 
+    # =========================================================================
+    # BOTTOM SHEET (Rankings Table)
+    # =========================================================================
     @app.callback(
         Output('bottom-sheet', 'className'),
         Input('sheet-handle', 'n_clicks'),
@@ -639,6 +636,9 @@ def register_callbacks(app):
             page_size=51
         )
 
+    # =========================================================================
+    # THEME TOGGLE
+    # =========================================================================
     @app.callback(
         Output('floating-controls', 'style'),
         Output('bottom-sheet', 'style'),
@@ -661,6 +661,7 @@ def register_callbacks(app):
                 'borderRadius': '12px',
                 'padding': '16px',
                 'minWidth': '200px',
+                'maxWidth': '240px',
                 'boxShadow': '0 4px 20px rgba(0,0,0,0.3)'
             }
             sheet_style = {
@@ -695,6 +696,7 @@ def register_callbacks(app):
                 'borderRadius': '12px',
                 'padding': '16px',
                 'minWidth': '200px',
+                'maxWidth': '240px',
                 'boxShadow': '0 4px 20px rgba(0,0,0,0.1)'
             }
             sheet_style = {

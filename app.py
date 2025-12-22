@@ -31,7 +31,8 @@ app = Dash(
     ],
     meta_tags=[
         {"name": "viewport", "content": "width=device-width, initial-scale=1"}
-    ]
+    ],
+    suppress_callback_exceptions=True  # rankings-table is dynamically created
 )
 
 # Inject custom CSS via index_string

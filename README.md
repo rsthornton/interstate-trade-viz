@@ -14,37 +14,51 @@ python app.py
 
 Opens at http://localhost:8050
 
+## Features
+
+- **Boundary sensitivity toggle**: Compare domestic-only (51x51) vs with-international (52x52) networks
+- **Rank change indicators**: Visual arrows showing how state centrality rankings shift when international trade is included
+- **Three centrality measures**: Eigenvector, Out-Degree, Betweenness
+- **Dark/light mode toggle**
+- **Explore vs Analyze modes**
+- **Interactive map** with state selection and detail drawer
+- **Rankings table** with GDP divergence coloring
+- **Filtration slider** for betweenness stability analysis
+
 ## Data
 
 - **Source**: U.S. Census Bureau [CFS 2017 Public Use File](https://www2.census.gov/programs-surveys/cfs/datasets/2017/)
-- **Network**: 51 nodes (50 states + DC), ~2,500 directed edges
-- **Weights**: Survey-adjusted trade values
+- **51x51 Network**: 51 nodes (50 states + DC), ~2,500 directed edges
+- **52x52 Network**: Adds international trade flows (Rest of World node)
+- **Weights**: Survey-adjusted trade values with weight inversion for betweenness
 
-## Features
+## Project Structure
 
-- Dark/light mode toggle
-- Explore vs Analyze modes
-- Interactive map with state selection
-- Floating controls and state detail drawer
-- Rankings table with GDP divergence coloring
-- Filtration slider for betweenness stability analysis
-
-## Architecture (Dash vs Streamlit)
-
-| Aspect | Streamlit | Dash |
-|--------|-----------|------|
-| Layout | `st.sidebar`, `st.columns` | Bootstrap grid, full CSS control |
-| State | `st.session_state` + `st.rerun()` | `dcc.Store` + callbacks |
-| Click handling | `on_select="rerun"` workaround | Native `clickData` property |
-| Styling | Limited themes | Bootstrap themes, custom CSS |
-| URL routing | None | Possible (add `dcc.Location`) |
-
-## What Stayed the Same
-
-- All Plotly figure creation code
-- NetworkX computations
-- Data loading logic
-- Core analysis functionality
+```
+interstate-trade/
+├── app.py                    # Entry point
+├── data_loader.py            # Data loading, rank change computation
+├── components/
+│   ├── __init__.py
+│   ├── layout.py             # App layout with boundary toggle
+│   └── map.py                # Network map visualization
+├── callbacks/
+│   ├── __init__.py
+│   └── interactions.py       # All Dash callbacks
+├── styles/
+│   ├── __init__.py
+│   └── css.py                # Custom CSS
+├── data/
+│   ├── centralities_51x51.csv
+│   ├── centralities_52x52.csv
+│   ├── filtration_results_51x51.csv
+│   ├── network_graph.gpickle
+│   ├── state_coords.csv
+│   └── state_gdp_2017.csv
+├── requirements.txt
+├── Procfile                  # For deployment
+└── plotly-cloud.toml         # Plotly Cloud config
+```
 
 ## Deployment
 
@@ -79,60 +93,29 @@ CMD ["gunicorn", "app:server", "--bind", "0.0.0.0:8050"]
 ## Customization
 
 ### Change theme
-Edit `external_stylesheets` in app initialization:
+Edit `external_stylesheets` in `app.py`:
 ```python
 app = Dash(__name__, external_stylesheets=[dbc.themes.FLATLY])
-# Options: BOOTSTRAP, CERULEAN, COSMO, CYBORG, DARKLY, FLATLY, 
-#          JOURNAL, LITERA, LUMEN, LUX, MATERIA, MINTY, MORPH,
-#          PULSE, QUARTZ, SANDSTONE, SIMPLEX, SKETCHY, SLATE,
-#          SOLAR, SPACELAB, SUPERHERO, UNITED, VAPOR, YETI, ZEPHYR
 ```
 
 ### Add custom CSS
-Create `assets/custom.css` - Dash auto-loads anything in `assets/`.
+Edit `styles/css.py` or create `assets/custom.css` (Dash auto-loads assets/).
 
-### Add URL routing
-```python
-from dash import dcc
+## Architecture Notes
 
-# In layout
-dcc.Location(id='url', refresh=False)
-
-# Add callback to handle URL changes
-@callback(Output('centrality-measure', 'value'), Input('url', 'pathname'))
-def route_to_measure(pathname):
-    if pathname == '/eigenvector':
-        return 'eigenvector'
-    # etc.
-```
-
-## Project Structure
-
-```
-interstate-trade/
-├── app.py                  # Main Dash application
-├── requirements.txt        # Dependencies
-├── Procfile                # For deployment
-├── plotly-cloud.toml       # Plotly Cloud config
-├── data/
-│   ├── centralities_51x51.csv
-│   ├── filtration_results_51x51.csv
-│   ├── network_graph.gpickle
-│   ├── state_coords.csv
-│   └── state_gdp_2017.csv
-└── assets/                 # Optional: custom CSS, favicon
-```
-
-## Notes
-
-- The app consolidates `main.py`, `data_loader.py`, and `visualizations.py` into a single file for simplicity
-- For larger projects, you'd split these back out into modules
-- `server = app.server` exposes the Flask server for WSGI deployment
+| Module | Purpose |
+|--------|---------|
+| `app.py` | Slim entry point, initializes Dash app |
+| `data_loader.py` | Loads networks, computes rank changes between 51x51 and 52x52 |
+| `components/layout.py` | Full app layout with stores, controls, panels |
+| `components/map.py` | Scattermapbox visualization with rank indicators |
+| `callbacks/interactions.py` | All interactivity (toggles, clicks, updates) |
+| `styles/css.py` | Custom CSS for theming |
 
 ## Known Issues
 
-- **Deprecation warning**: `scattermapbox` is deprecated in favor of `scattermap` (Plotly's MapLibre migration). Not urgent but worth updating eventually.
+- **Deprecation warning**: `scattermapbox` deprecated in favor of `scattermap` (Plotly's MapLibre migration)
 
-## Future Enhancements
+## Related
 
-- **Methodology tab**: Add explanation of Jang & Yang three-level centrality hierarchy for academic audiences
+This visualization connects to thesis research on boundary sensitivity in trade network analysis. The 52x52 data comes from the canonical thesis pipeline run (November 2025).

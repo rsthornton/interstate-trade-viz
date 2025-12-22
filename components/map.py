@@ -5,11 +5,22 @@ import pandas as pd
 
 
 def create_network_map(centralities, coordinates, centrality_measure='eigenvector',
-                       selected_state=None, show_edges=False, edge_data=None, dark_mode=True):
-    """Create the network map with refined styling."""
+                       selected_state=None, show_edges=False, edge_data=None, dark_mode=True,
+                       rank_changes=None, network_type='51x51'):
+    """Create the network map with refined styling.
+
+    Args:
+        rank_changes: DataFrame with columns like 'betweenness_change', 'eigenvector_change'
+                     Positive = rank improved when intl added, negative = rank worsened
+        network_type: '51x51' or '52x52' - only show indicators when comparing (52x52)
+    """
 
     coords = coordinates.rename(columns={'state_abbr': 'state'})
     df = centralities.merge(coords[['state', 'lat', 'lon']], on='state', how='inner')
+
+    # Merge rank changes if provided
+    if rank_changes is not None and network_type == '52x52':
+        df = df.merge(rank_changes, on='state', how='left')
 
     # Sizing
     min_size, max_size = 12, 55
@@ -21,6 +32,8 @@ def create_network_map(centralities, coordinates, centrality_measure='eigenvecto
     # Build hover text
     has_state_name = 'state_name' in df.columns
     has_gdp = 'gdp_billions' in df.columns
+    change_col = f'{centrality_measure}_change'
+    has_rank_change = change_col in df.columns
 
     hover_text = []
     for _, row in df.iterrows():
@@ -29,6 +42,17 @@ def create_network_map(centralities, coordinates, centrality_measure='eigenvecto
         if has_gdp and pd.notna(row['gdp_billions']):
             text += f"GDP: ${row['gdp_billions']:.1f}B (#{int(row['gdp_rank'])})<br>"
         text += f"<br><b>{centrality_measure.replace('_', ' ').title()}</b>: {row[centrality_measure]:.4f} (#{int(row[f'rank_{centrality_measure}'])})"
+
+        # Add rank change info if available (52x52 mode)
+        if has_rank_change and pd.notna(row[change_col]):
+            change = int(row[change_col])
+            if change > 0:
+                text += f"<br><span style='color:#2ecc71'>▲ +{change} vs domestic</span>"
+            elif change < 0:
+                text += f"<br><span style='color:#e74c3c'>▼ {change} vs domestic</span>"
+            else:
+                text += f"<br>— No change vs domestic"
+
         hover_text.append(text)
 
     # Selection highlighting
@@ -106,6 +130,40 @@ def create_network_map(centralities, coordinates, centrality_measure='eigenvecto
         customdata=df['state'].tolist(),
         name=''
     ))
+
+    # Add rank change indicator labels (52x52 mode only, for significant changes)
+    if has_rank_change:
+        indicator_lats = []
+        indicator_lons = []
+        indicator_texts = []
+        indicator_colors = []
+
+        for _, row in df.iterrows():
+            if pd.notna(row[change_col]):
+                change = int(row[change_col])
+                # Only show indicators for significant changes (|change| >= 3)
+                if abs(change) >= 3:
+                    indicator_lats.append(row['lat'] + 0.8)  # Offset slightly north
+                    indicator_lons.append(row['lon'])
+                    if change > 0:
+                        indicator_texts.append(f"▲{change}")
+                        indicator_colors.append('#2ecc71')  # Green
+                    else:
+                        indicator_texts.append(f"▼{abs(change)}")
+                        indicator_colors.append('#e74c3c')  # Red
+
+        if indicator_lats:
+            # Add each indicator separately to control color
+            for lat, lon, text, color in zip(indicator_lats, indicator_lons, indicator_texts, indicator_colors):
+                fig.add_trace(go.Scattermapbox(
+                    lat=[lat],
+                    lon=[lon],
+                    mode='text',
+                    text=[text],
+                    textfont=dict(size=11, color=color, family='Arial Black'),
+                    hoverinfo='skip',
+                    showlegend=False
+                ))
 
     fig.update_layout(
         mapbox=dict(

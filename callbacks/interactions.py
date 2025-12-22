@@ -282,7 +282,9 @@ def register_callbacks(app):
             selected_state=selected_state,
             show_edges=show_edges,
             edge_data=edge_data,
-            dark_mode=dark_mode
+            dark_mode=dark_mode,
+            rank_changes=rank_changes,
+            network_type=network_type
         )
 
         return fig

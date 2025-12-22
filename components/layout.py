@@ -31,9 +31,6 @@ def create_layout():
         dcc.Store(id='table-expanded', data=False),
         dcc.Store(id='selected-measure', data='eigenvector'),
         dcc.Store(id='network-type', data='51x51'),  # '51x51' or '52x52'
-        dcc.Store(id='insight-visible', data=True),  # For floating insight card
-        dcc.Store(id='insight-timestamp', data=0),   # Track when to auto-hide
-        dcc.Interval(id='insight-timer', interval=1000, n_intervals=0),  # 1s timer for auto-hide
 
         # Main container
         html.Div(id='main-container', className='theme-light', children=[
@@ -172,15 +169,6 @@ def create_layout():
                 'maxWidth': '240px',  # Constrain width
                 'boxShadow': '0 4px 20px rgba(0,0,0,0.3)'
             }),
-
-            # Floating insight card (bottom-right)
-            html.Div(id='insight-card', children=[
-                html.Div([
-                    html.Span("KEY INSIGHT", className="insight-card-label"),
-                    html.Button("×", id='dismiss-insight', className="insight-dismiss-btn")
-                ], className="insight-card-header"),
-                html.Div(id='insight-card-content', className="insight-card-body")
-            ], className="insight-card", style={'display': 'block'}),
 
             # State detail drawer (right side)
             html.Div(id='state-drawer', className="state-drawer hidden", children=[

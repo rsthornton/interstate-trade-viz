@@ -1,6 +1,5 @@
 """Dash callbacks for user interactions."""
 
-import time
 from dash import html, callback, Output, Input, State, ctx, dash_table, no_update
 from components.map import create_network_map
 from data_loader import (
@@ -8,14 +7,6 @@ from data_loader import (
     coords, network, gdp, filtration_data,
     get_top_edges
 )
-
-
-# Key insights for each measure (shown in floating card)
-MEASURE_INSIGHTS = {
-    'eigenvector': 'Robust across network changes (ρ > 0.98). Iowa: #31 GDP → #13 Eigenvector',
-    'out_degree': 'High GDP alignment expected. FL (#4 GDP, #14 OutDeg) reveals consumption vs production hubs.',
-    'betweenness': 'CA and TX dominate as national trade bridges. Rankings stable under filtration.'
-}
 
 
 def _format_divergence(gdp_rank, centrality_rank, text_color):
@@ -90,15 +81,13 @@ def register_callbacks(app):
         Output('btn-between', 'outline'),
         Output('filtration-section', 'style'),
         Output('selected-measure', 'data'),
-        Output('insight-visible', 'data'),
-        Output('insight-timestamp', 'data'),
         Input('btn-eigen', 'n_clicks'),
         Input('btn-outdeg', 'n_clicks'),
         Input('btn-between', 'n_clicks'),
         Input('dark-mode-toggle', 'value'),
     )
     def update_measure_buttons(n1, n2, n3, dark_mode):
-        """Update button states, show/hide filtration, and trigger insight card."""
+        """Update button states and show/hide filtration slider."""
         triggered = ctx.triggered_id
 
         if triggered == 'btn-outdeg':
@@ -116,78 +105,8 @@ def register_callbacks(app):
 
         filtration_style = {'display': 'block'} if selected == 'betweenness' else {'display': 'none'}
 
-        # Show insight card and reset timer when measure changes
-        show_insight = True
-        timestamp = time.time()
-
         return (btn_color, btn_color, btn_color, eigen_outline, outdeg_outline,
-                between_outline, filtration_style, selected, show_insight, timestamp)
-
-    # =========================================================================
-    # FLOATING INSIGHT CARD
-    # =========================================================================
-    @app.callback(
-        Output('insight-card-content', 'children'),
-        Input('selected-measure', 'data'),
-    )
-    def update_insight_content(measure):
-        """Update the insight card content based on selected measure."""
-        if measure is None:
-            measure = 'eigenvector'
-        return MEASURE_INSIGHTS.get(measure, MEASURE_INSIGHTS['eigenvector'])
-
-    @app.callback(
-        Output('insight-card', 'style'),
-        Input('insight-visible', 'data'),
-        Input('dismiss-insight', 'n_clicks'),
-        Input('insight-timer', 'n_intervals'),
-        State('insight-timestamp', 'data'),
-        State('dark-mode-toggle', 'value'),
-    )
-    def update_insight_visibility(visible, dismiss_clicks, n_intervals, timestamp, dark_mode):
-        """Control insight card visibility with auto-hide after 8 seconds."""
-        triggered = ctx.triggered_id
-
-        # Base style
-        base_style = {
-            'position': 'absolute',
-            'bottom': '80px',
-            'right': '20px',
-            'zIndex': '1001',
-            'maxWidth': '220px',
-            'background': 'rgba(26, 26, 46, 0.95)' if dark_mode else 'rgba(255, 255, 255, 0.98)',
-            'backdropFilter': 'blur(10px)',
-            'borderRadius': '10px',
-            'padding': '12px',
-            'boxShadow': '0 4px 20px rgba(0,0,0,0.3)' if dark_mode else '0 4px 20px rgba(0,0,0,0.15)',
-            'transition': 'opacity 0.3s ease, transform 0.3s ease',
-        }
-
-        # If dismissed, hide
-        if triggered == 'dismiss-insight':
-            base_style['opacity'] = '0'
-            base_style['transform'] = 'translateY(10px)'
-            base_style['pointerEvents'] = 'none'
-            return base_style
-
-        # Auto-hide after 8 seconds
-        if timestamp and (time.time() - timestamp) > 8:
-            base_style['opacity'] = '0'
-            base_style['transform'] = 'translateY(10px)'
-            base_style['pointerEvents'] = 'none'
-            return base_style
-
-        # Show if visible
-        if visible:
-            base_style['opacity'] = '1'
-            base_style['transform'] = 'translateY(0)'
-            return base_style
-
-        # Default: hidden
-        base_style['opacity'] = '0'
-        base_style['transform'] = 'translateY(10px)'
-        base_style['pointerEvents'] = 'none'
-        return base_style
+                between_outline, filtration_style, selected)
 
     # =========================================================================
     # EDGE TOGGLE

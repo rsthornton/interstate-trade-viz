@@ -69,7 +69,7 @@ def create_layout():
                                 dbc.PopoverHeader(MEASURE_INFO['eigenvector']['title']),
                                 dbc.PopoverBody(MEASURE_INFO['eigenvector']['description'])
                             ],
-                            target="info-eigen", trigger="click", placement="right"
+                            target="info-eigen", trigger="hover", placement="right"
                         ),
                         # Out-Degree button + info
                         html.Span([
@@ -83,7 +83,7 @@ def create_layout():
                                 dbc.PopoverHeader(MEASURE_INFO['out_degree']['title']),
                                 dbc.PopoverBody(MEASURE_INFO['out_degree']['description'])
                             ],
-                            target="info-outdeg", trigger="click", placement="right"
+                            target="info-outdeg", trigger="hover", placement="right"
                         ),
                         # Betweenness button + info
                         html.Span([
@@ -97,7 +97,7 @@ def create_layout():
                                 dbc.PopoverHeader(MEASURE_INFO['betweenness']['title']),
                                 dbc.PopoverBody(MEASURE_INFO['betweenness']['description'])
                             ],
-                            target="info-between", trigger="click", placement="right"
+                            target="info-between", trigger="hover", placement="right"
                         ),
                     ], className="measure-pills", style={'display': 'flex', 'flexWrap': 'wrap', 'alignItems': 'center'})
                 ], className="mb-3"),

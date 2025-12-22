@@ -156,7 +156,7 @@ def register_callbacks(app):
         Input('network-type', 'data'),
         Input('selected-commodity', 'data')
     )
-    def update_map(measure, filtration, show_edges, edge_count, selected_state, dark_mode, network_type, commodity):
+    def update_map(measure, filtration, show_edges, edge_slider, selected_state, dark_mode, network_type, commodity):
         """Update the map visualization."""
         if measure is None:
             measure = 'eigenvector'
@@ -164,6 +164,10 @@ def register_callbacks(app):
             network_type = '51x51'
         if commodity is None:
             commodity = 'all'
+
+        # Map slider position to edge count (logarithmic scale)
+        edge_count_map = {0: 20, 1: 50, 2: 100, 3: 200, 4: 500, 5: 1000, 6: 99999}
+        edge_count = edge_count_map.get(edge_slider, 100)
 
         filtration_map = {0: 'full_network', 1: 'threshold_1', 2: 'threshold_2', 3: 'threshold_3'}
         threshold_key = filtration_map.get(filtration, 'full_network')
@@ -212,7 +216,7 @@ def register_callbacks(app):
                                 'target_lon': coords_lookup[t_label]['lon']
                             })
             else:
-                edge_data = get_top_edges(network, coords, centralities, top_n=edge_count or 60)
+                edge_data = get_top_edges(network, coords, centralities, top_n=edge_count)
 
         fig = create_network_map(
             centralities, coords, measure,

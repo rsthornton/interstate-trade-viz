@@ -79,6 +79,8 @@ def create_network_map(centralities, coordinates, centrality_measure='eigenvecto
     fig = go.Figure()
 
     # Add edges first (behind nodes)
+    # Note: Edge hover disabled for performance - each edge as separate trace is slow.
+    # V2: Consider bundling edges or using click-to-inspect pattern instead.
     if show_edges and edge_data:
         max_weight = max(e['weight'] for e in edge_data) if edge_data else 1
         for edge in edge_data:
@@ -91,27 +93,12 @@ def create_network_map(centralities, coordinates, centrality_measure='eigenvecto
             else:
                 edge_color = 'rgba(100, 149, 237, 0.3)' if dark_mode else 'rgba(70, 130, 180, 0.4)'
 
-            # Format trade value for hover
-            trade_value = edge['weight']
-            if trade_value >= 1e9:
-                trade_str = f"${trade_value/1e9:.1f}B"
-            else:
-                trade_str = f"${trade_value/1e6:.0f}M"
-
-            hover_text = f"<b>{edge['source']} → {edge['target']}</b><br>Trade: {trade_str}"
-
             fig.add_trace(go.Scattermapbox(
                 lat=[edge['source_lat'], edge['target_lat']],
                 lon=[edge['source_lon'], edge['target_lon']],
                 mode='lines',
                 line=dict(width=scaled_width, color=edge_color),
-                text=hover_text,
-                hoverinfo='text',
-                hoverlabel=dict(
-                    bgcolor='rgba(26, 26, 46, 0.9)' if dark_mode else 'rgba(255, 255, 255, 0.95)',
-                    font=dict(color='white' if dark_mode else '#333', size=12),
-                    bordercolor='rgba(255,255,255,0.2)' if dark_mode else 'rgba(0,0,0,0.1)'
-                ),
+                hoverinfo='skip',
                 showlegend=False
             ))
 

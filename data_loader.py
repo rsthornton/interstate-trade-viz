@@ -6,9 +6,15 @@ import pickle
 from pathlib import Path
 
 
-def load_centralities(data_dir="data"):
-    """Load centrality scores from CSV."""
-    file_path = Path(data_dir) / "centralities_51x51.csv"
+def load_centralities(data_dir="data", network_type="51x51"):
+    """Load centrality scores from CSV.
+
+    Args:
+        data_dir: Directory containing data files
+        network_type: "51x51" for domestic only, "52x52" for with international
+    """
+    filename = f"centralities_{network_type}.csv"
+    file_path = Path(data_dir) / filename
     df = pd.read_csv(file_path)
     df = df.rename(columns={'label': 'state'})
     return df
@@ -97,27 +103,54 @@ def get_top_edges(network, coords, centralities, top_n=50):
 print("Loading data...")
 
 # Load raw data
-centralities_base = load_centralities()
 coords = load_state_coords()
 network = load_network()
 filtration_data = load_filtration_data()
 gdp = load_gdp()
 
-# Merge GDP and state_name into centralities
-centralities_base = centralities_base.merge(
-    gdp[['state_abbrev', 'gdp_billions', 'gdp_rank']],
-    left_on='state', right_on='state_abbrev', how='left'
-).drop(columns=['state_abbrev'])
+# Load both network configurations
+centralities_51x51 = load_centralities(network_type="51x51")
+centralities_52x52 = load_centralities(network_type="52x52")
 
-centralities_base = centralities_base.merge(
-    coords[['state_abbr', 'state_name']],
-    left_on='state', right_on='state_abbr', how='left'
-).drop(columns=['state_abbr'])
+
+def _prepare_centralities(df):
+    """Merge GDP and state_name into centralities dataframe."""
+    df = df.merge(
+        gdp[['state_abbrev', 'gdp_billions', 'gdp_rank']],
+        left_on='state', right_on='state_abbrev', how='left'
+    ).drop(columns=['state_abbrev'])
+
+    df = df.merge(
+        coords[['state_abbr', 'state_name']],
+        left_on='state', right_on='state_abbr', how='left'
+    ).drop(columns=['state_abbr'])
+
+    return df
+
+
+# Prepare both datasets
+centralities_51x51 = _prepare_centralities(centralities_51x51)
+centralities_52x52 = _prepare_centralities(centralities_52x52)
+
+# Default to 51x51 for backwards compatibility
+centralities_base = centralities_51x51
+
+# Compute rank changes between 51x51 and 52x52 (for boundary sensitivity visualization)
+# Only for the 51 states that exist in both (exclude RoW from 52x52)
+states_51 = set(centralities_51x51['state'])
+centralities_52x52_states_only = centralities_52x52[centralities_52x52['state'].isin(states_51)].copy()
+
+rank_changes = centralities_51x51[['state']].copy()
+for measure in ['betweenness', 'eigenvector', 'out_degree']:
+    rank_51 = centralities_51x51.set_index('state')[f'rank_{measure}']
+    rank_52 = centralities_52x52_states_only.set_index('state')[f'rank_{measure}']
+    # Positive = improved rank (lower number = better)
+    rank_changes[f'{measure}_change'] = (rank_51 - rank_52).reindex(rank_changes['state']).values
 
 # Compute network stats
 density = nx.density(network)
 num_edges = network.number_of_edges()
-num_nodes = len(centralities_base)
+num_nodes = len(centralities_51x51)
 clustering_coef = nx.average_clustering(network, weight='weight')
 reciprocity = nx.reciprocity(network)
 

@@ -3,7 +3,8 @@
 from dash import html, callback, Output, Input, State, ctx, dash_table
 from components.map import create_network_map
 from data_loader import (
-    centralities_base, coords, network, gdp, filtration_data,
+    centralities_base, centralities_51x51, centralities_52x52, rank_changes,
+    coords, network, gdp, filtration_data,
     get_top_edges
 )
 
@@ -64,6 +65,27 @@ def register_callbacks(app):
             return True, False, btn_color, btn_color, 'analyze'
         else:
             return False, True, btn_color, btn_color, 'explore'
+
+    @app.callback(
+        Output('btn-51x51', 'outline'),
+        Output('btn-52x52', 'outline'),
+        Output('btn-51x51', 'color'),
+        Output('btn-52x52', 'color'),
+        Output('network-type', 'data'),
+        Input('btn-51x51', 'n_clicks'),
+        Input('btn-52x52', 'n_clicks'),
+        Input('dark-mode-toggle', 'value'),
+    )
+    def toggle_network_type(n1, n2, dark_mode):
+        """Toggle between 51x51 (domestic) and 52x52 (with international)."""
+        triggered = ctx.triggered_id
+
+        btn_color = 'light' if dark_mode else 'secondary'
+
+        if triggered == 'btn-52x52':
+            return True, False, btn_color, btn_color, '52x52'
+        else:
+            return False, True, btn_color, btn_color, '51x51'
 
     @app.callback(
         Output('interpretation-section', 'children'),
@@ -199,12 +221,15 @@ def register_callbacks(app):
         Input('edge-toggle', 'value'),
         Input('edge-count-slider', 'value'),
         Input('selected-state', 'data'),
-        Input('dark-mode-toggle', 'value')
+        Input('dark-mode-toggle', 'value'),
+        Input('network-type', 'data')
     )
-    def update_map(measure, filtration, show_edges, edge_count, selected_state, dark_mode):
+    def update_map(measure, filtration, show_edges, edge_count, selected_state, dark_mode, network_type):
         """Update the map visualization."""
         if measure is None:
             measure = 'eigenvector'
+        if network_type is None:
+            network_type = '51x51'
 
         filtration_map = {0: 'full_network', 1: 'threshold_1', 2: 'threshold_2', 3: 'threshold_3'}
         threshold_key = filtration_map.get(filtration, 'full_network')
@@ -220,7 +245,12 @@ def register_callbacks(app):
                 left_on='state', right_on='state_abbr', how='left'
             ).drop(columns=['state_abbr'], errors='ignore')
         else:
-            centralities = centralities_base.copy()
+            # Select dataset based on network type
+            if network_type == '52x52':
+                # Use 52x52 but filter out RoW (no map coords for Rest of World)
+                centralities = centralities_52x52[centralities_52x52['state'] != 'RoW'].copy()
+            else:
+                centralities = centralities_51x51.copy()
 
         edge_data = None
         if show_edges:

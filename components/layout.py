@@ -14,6 +14,7 @@ def create_layout():
         dcc.Store(id='table-expanded', data=False),
         dcc.Store(id='selected-measure', data='eigenvector'),
         dcc.Store(id='app-mode', data='explore'),
+        dcc.Store(id='network-type', data='51x51'),  # '51x51' or '52x52'
 
         # Main container
         html.Div(id='main-container', className='theme-light', children=[
@@ -57,6 +58,17 @@ def create_layout():
                         dbc.Button("Betweenness", id="btn-between", color="light", size="sm",
                                   n_clicks=0, outline=True),
                     ], className="measure-pills")
+                ], className="mb-3"),
+
+                # Boundary sensitivity toggle (51x51 vs 52x52)
+                html.Div([
+                    html.Label("Network Boundary", className="text-muted small mb-2 d-block"),
+                    dbc.ButtonGroup([
+                        dbc.Button("Domestic", id="btn-51x51", color="light", size="sm",
+                                  outline=False, className="mode-btn"),
+                        dbc.Button("+ Intl", id="btn-52x52", color="light", size="sm",
+                                  outline=True, className="mode-btn"),
+                    ], size="sm", className="w-100")
                 ], className="mb-3"),
 
                 # Interpretation guide (Analyze mode only)

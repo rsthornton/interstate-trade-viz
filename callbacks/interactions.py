@@ -165,8 +165,8 @@ def register_callbacks(app):
         if commodity is None:
             commodity = 'all'
 
-        # Map slider position to edge count (logarithmic scale)
-        edge_count_map = {0: 20, 1: 50, 2: 100, 3: 200, 4: 500, 5: 1000, 6: 99999}
+        # Map slider position to edge count (logarithmic scale, capped at 1000)
+        edge_count_map = {0: 20, 1: 50, 2: 100, 3: 200, 4: 500, 5: 1000}
         edge_count = edge_count_map.get(edge_slider, 100)
 
         filtration_map = {0: 'full_network', 1: 'threshold_1', 2: 'threshold_2', 3: 'threshold_3'}

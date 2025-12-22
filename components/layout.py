@@ -161,20 +161,19 @@ def create_layout():
                     )
                 ], className="mb-2"),
 
-                # Edge count slider (logarithmic scale)
+                # Edge count slider (logarithmic scale, capped at 1000 for performance)
                 html.Div(id='edge-count-section', children=[
                     html.Label("Top N Flows", className="text-muted small mb-2 d-block"),
                     dcc.Slider(
                         id='edge-count-slider',
-                        min=0, max=6, step=1, value=2,
+                        min=0, max=5, step=1, value=2,
                         marks={
                             0: '20',
                             1: '50',
                             2: '100',
                             3: '200',
                             4: '500',
-                            5: '1k',
-                            6: 'All'
+                            5: '1k'
                         },
                     )
                 ], style={'display': 'none'}),

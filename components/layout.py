@@ -2,7 +2,7 @@
 
 from dash import html, dcc
 import dash_bootstrap_components as dbc
-from data_loader import num_nodes, num_edges, density, clustering_coef, reciprocity
+from data_loader import num_nodes, num_edges, density, clustering_coef, reciprocity, commodity_options
 
 
 # Centrality measure descriptions for info popovers
@@ -31,6 +31,7 @@ def create_layout():
         dcc.Store(id='table-expanded', data=False),
         dcc.Store(id='selected-measure', data='eigenvector'),
         dcc.Store(id='network-type', data='51x51'),  # '51x51' or '52x52'
+        dcc.Store(id='selected-commodity', data='all'),  # SCTG code or 'all'
 
         # Main container
         html.Div(id='main-container', className='theme-light', children=[
@@ -111,6 +112,32 @@ def create_layout():
                         dbc.Button("+ International", id="btn-52x52", color="light", size="sm",
                                   outline=True, className="mode-btn"),
                     ], size="sm", className="w-100")
+                ], className="mb-3"),
+
+                # Commodity filter dropdown
+                html.Div(id='commodity-section', children=[
+                    html.Label([
+                        "Commodity Filter",
+                        html.Span("ⓘ", id="info-commodity", className="info-icon ms-1",
+                                 style={'cursor': 'pointer'})
+                    ], className="text-muted small mb-2 d-block"),
+                    dbc.Popover(
+                        [
+                            dbc.PopoverHeader("Commodity Filter"),
+                            dbc.PopoverBody("Filter network analysis by commodity type. "
+                                          "Each commodity has distinct trade patterns—machinery flows "
+                                          "differ from agricultural or energy products.")
+                        ],
+                        target="info-commodity", trigger="hover", placement="right"
+                    ),
+                    dcc.Dropdown(
+                        id='commodity-dropdown',
+                        options=commodity_options,
+                        value='all',
+                        clearable=False,
+                        className="commodity-dropdown",
+                        style={'backgroundColor': 'rgba(255,255,255,0.1)'}
+                    )
                 ], className="mb-3"),
 
                 # Filtration slider (only for betweenness)

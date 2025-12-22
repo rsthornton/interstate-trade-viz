@@ -60,6 +60,109 @@ def load_filtration_data(data_dir="data"):
     return filtration_data
 
 
+def load_commodity_centralities(data_dir="data"):
+    """Load commodity-level centralities from CSV.
+
+    Returns:
+        DataFrame with columns: state_id, label (state), betweenness, eigenvector,
+        out_degree, commodity_code, commodity_name
+    """
+    file_path = Path(data_dir) / "commodity_centralities.csv"
+    df = pd.read_csv(file_path)
+    df = df.rename(columns={'label': 'state'})
+    return df
+
+
+# Commodity groupings for UI (SCTG codes grouped by category)
+COMMODITY_GROUPS = {
+    'Agriculture & Food': ['01', '02', '03', '04', '05', '06', '07', '08', '09', '01-05', '06-09'],
+    'Mining & Extraction': ['10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '10-14', '15-19'],
+    'Chemicals & Plastics': ['20', '21', '22', '23', '24', '20-24'],
+    'Wood & Paper': ['25', '26', '27', '28', '29', '25-30'],
+    'Metals & Minerals': ['30', '31', '32', '33', '31-34'],
+    'Machinery & Equipment': ['34', '35', '36', '37', '38', '35-38'],
+    'Consumer & Other': ['39', '40', '41', '43', '39-43', '00'],
+}
+
+
+def get_commodity_options():
+    """Get commodity options for dropdown, grouped by category.
+
+    Returns:
+        List of dicts suitable for dcc.Dropdown options with grouping.
+    """
+    options = [{'label': '📦 All Commodities', 'value': 'all'}]
+
+    for group_name, codes in COMMODITY_GROUPS.items():
+        # Add group header (disabled)
+        options.append({'label': f'── {group_name} ──', 'value': f'header_{group_name}', 'disabled': True})
+        for code in codes:
+            if code in SCTG_NAMES:
+                options.append({
+                    'label': f'  {code}: {SCTG_NAMES[code]}',
+                    'value': code
+                })
+    return options
+
+
+# SCTG code names (from thesis toolkit)
+SCTG_NAMES = {
+    '00': 'Unknown/Unclassified',
+    '01': 'Live Animals and Fish',
+    '02': 'Cereal Grains',
+    '03': 'Other Agricultural Products',
+    '04': 'Animal Feed',
+    '05': 'Meat/Seafood',
+    '06': 'Milled Grain Products',
+    '07': 'Other Foodstuffs',
+    '08': 'Alcoholic Beverages',
+    '09': 'Tobacco Products',
+    '10': 'Building Stone',
+    '11': 'Natural Sands',
+    '12': 'Gravel and Crushed Stone',
+    '13': 'Nonmetallic Minerals',
+    '14': 'Metallic Ores',
+    '15': 'Coal',
+    '16': 'Crude Petroleum',
+    '17': 'Gasoline',
+    '18': 'Fuel Oils',
+    '19': 'Coal and Petroleum Products',
+    '20': 'Basic Chemicals',
+    '21': 'Pharmaceutical Products',
+    '22': 'Fertilizers',
+    '23': 'Chemical Products',
+    '24': 'Plastics/Rubber',
+    '25': 'Logs and Wood',
+    '26': 'Wood Products',
+    '27': 'Newsprint/Paper',
+    '28': 'Paper Articles',
+    '29': 'Printed Products',
+    '30': 'Textiles/Leather',
+    '31': 'Nonmetallic Mineral Products',
+    '32': 'Base Metals',
+    '33': 'Articles of Base Metal',
+    '34': 'Machinery',
+    '35': 'Electronic Equipment',
+    '36': 'Motorized Vehicles',
+    '37': 'Transportation Equipment',
+    '38': 'Precision Instruments',
+    '39': 'Furniture',
+    '40': 'Misc. Manufactured Products',
+    '41': 'Waste/Scrap',
+    '43': 'Mixed Freight',
+    # Grouped codes
+    '01-05': 'Agriculture (Grouped)',
+    '06-09': 'Food Products (Grouped)',
+    '10-14': 'Mining (Grouped)',
+    '15-19': 'Energy (Grouped)',
+    '20-24': 'Chemicals (Grouped)',
+    '25-30': 'Wood/Paper/Textiles (Grouped)',
+    '31-34': 'Metals/Machinery (Grouped)',
+    '35-38': 'Electronics/Vehicles (Grouped)',
+    '39-43': 'Consumer/Other (Grouped)',
+}
+
+
 def get_top_edges(network, coords, centralities, top_n=50):
     """Get the top N edges by weight for visualization."""
     id_to_label = dict(zip(centralities['state_id'], centralities['state']))
@@ -107,6 +210,7 @@ coords = load_state_coords()
 network = load_network()
 filtration_data = load_filtration_data()
 gdp = load_gdp()
+commodity_centralities_raw = load_commodity_centralities()
 
 # Load both network configurations
 centralities_51x51 = load_centralities(network_type="51x51")
@@ -153,5 +257,54 @@ num_edges = network.number_of_edges()
 num_nodes = len(centralities_51x51)
 clustering_coef = nx.average_clustering(network, weight='weight')
 reciprocity = nx.reciprocity(network)
+
+# Prepare commodity centralities (add ranks per commodity)
+def _prepare_commodity_centralities(df):
+    """Add ranks within each commodity code."""
+    result_dfs = []
+    for code in df['commodity_code'].unique():
+        code_df = df[df['commodity_code'] == code].copy()
+        code_df['rank_betweenness'] = code_df['betweenness'].rank(ascending=False, method='min')
+        code_df['rank_eigenvector'] = code_df['eigenvector'].rank(ascending=False, method='min')
+        code_df['rank_out_degree'] = code_df['out_degree'].rank(ascending=False, method='min')
+
+        # Merge GDP and state names
+        code_df = code_df.merge(
+            gdp[['state_abbrev', 'gdp_billions', 'gdp_rank']],
+            left_on='state', right_on='state_abbrev', how='left'
+        ).drop(columns=['state_abbrev'], errors='ignore')
+
+        code_df = code_df.merge(
+            coords[['state_abbr', 'state_name']],
+            left_on='state', right_on='state_abbr', how='left'
+        ).drop(columns=['state_abbr'], errors='ignore')
+
+        result_dfs.append(code_df)
+
+    return pd.concat(result_dfs, ignore_index=True)
+
+
+commodity_centralities = _prepare_commodity_centralities(commodity_centralities_raw)
+
+# Get list of available commodity codes
+available_commodities = sorted(commodity_centralities['commodity_code'].unique().tolist())
+commodity_options = get_commodity_options()
+
+
+def get_centralities_for_commodity(commodity_code):
+    """Get centralities for a specific commodity code.
+
+    Args:
+        commodity_code: SCTG code (e.g., '34' for Machinery) or 'all' for aggregate
+
+    Returns:
+        DataFrame with centralities for that commodity (same format as centralities_51x51)
+    """
+    if commodity_code == 'all':
+        return centralities_51x51
+
+    code_df = commodity_centralities[commodity_centralities['commodity_code'] == commodity_code].copy()
+    return code_df.reset_index(drop=True)
+
 
 print("Data loaded.")

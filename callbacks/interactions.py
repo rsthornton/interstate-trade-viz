@@ -5,7 +5,7 @@ from components.map import create_network_map
 from data_loader import (
     centralities_base, centralities_51x51, centralities_52x52, rank_changes,
     coords, network, gdp, filtration_data,
-    get_top_edges
+    get_top_edges, get_centralities_for_commodity, SCTG_NAMES
 )
 
 
@@ -46,6 +46,23 @@ def register_callbacks(app):
     """Register all callbacks with the Dash app."""
 
     # =========================================================================
+    # COMMODITY FILTER SELECTION
+    # =========================================================================
+    @app.callback(
+        Output('selected-commodity', 'data'),
+        Output('btn-52x52', 'disabled'),
+        Output('commodity-section', 'title'),
+        Input('commodity-dropdown', 'value'),
+    )
+    def update_commodity_selection(commodity):
+        """Update commodity selection and disable international toggle when commodity selected."""
+        if commodity and commodity != 'all':
+            # Commodity data only available for domestic network
+            commodity_name = SCTG_NAMES.get(commodity, commodity)
+            return commodity, True, f"Showing {commodity_name} trade network (domestic only)"
+        return 'all', False, ""
+
+    # =========================================================================
     # NETWORK TYPE TOGGLE (51x51 vs 52x52)
     # =========================================================================
     @app.callback(
@@ -57,12 +74,17 @@ def register_callbacks(app):
         Input('btn-51x51', 'n_clicks'),
         Input('btn-52x52', 'n_clicks'),
         Input('dark-mode-toggle', 'value'),
+        Input('selected-commodity', 'data'),
     )
-    def toggle_network_type(n1, n2, dark_mode):
+    def toggle_network_type(n1, n2, dark_mode, commodity):
         """Toggle between 51x51 (domestic) and 52x52 (with international)."""
         triggered = ctx.triggered_id
 
         btn_color = 'light' if dark_mode else 'secondary'
+
+        # Force domestic view when commodity is selected
+        if commodity and commodity != 'all':
+            return False, True, btn_color, btn_color, '51x51'
 
         if triggered == 'btn-52x52':
             return True, False, btn_color, btn_color, '52x52'
@@ -131,19 +153,25 @@ def register_callbacks(app):
         Input('edge-count-slider', 'value'),
         Input('selected-state', 'data'),
         Input('dark-mode-toggle', 'value'),
-        Input('network-type', 'data')
+        Input('network-type', 'data'),
+        Input('selected-commodity', 'data')
     )
-    def update_map(measure, filtration, show_edges, edge_count, selected_state, dark_mode, network_type):
+    def update_map(measure, filtration, show_edges, edge_count, selected_state, dark_mode, network_type, commodity):
         """Update the map visualization."""
         if measure is None:
             measure = 'eigenvector'
         if network_type is None:
             network_type = '51x51'
+        if commodity is None:
+            commodity = 'all'
 
         filtration_map = {0: 'full_network', 1: 'threshold_1', 2: 'threshold_2', 3: 'threshold_3'}
         threshold_key = filtration_map.get(filtration, 'full_network')
 
-        if measure == 'betweenness' and threshold_key != 'full_network':
+        # Commodity filter takes precedence (only domestic data available)
+        if commodity != 'all':
+            centralities = get_centralities_for_commodity(commodity)
+        elif measure == 'betweenness' and threshold_key != 'full_network':
             centralities = filtration_data[threshold_key].copy()
             centralities = centralities.merge(
                 gdp[['state_abbrev', 'gdp_billions', 'gdp_rank']],

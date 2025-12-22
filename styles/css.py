@@ -471,4 +471,78 @@ CUSTOM_CSS = """
     font-size: 12px;
     line-height: 1.5;
 }
+
+/* Commodity dropdown styling */
+.commodity-dropdown .Select-control {
+    background: rgba(255,255,255,0.08) !important;
+    border: 1px solid rgba(255,255,255,0.15) !important;
+    border-radius: 8px !important;
+}
+
+.commodity-dropdown .Select-value-label,
+.commodity-dropdown .Select-placeholder {
+    color: rgba(255,255,255,0.8) !important;
+    font-size: 12px !important;
+}
+
+.commodity-dropdown .Select-menu-outer {
+    background: rgba(26, 26, 46, 0.98) !important;
+    border: 1px solid rgba(255,255,255,0.15) !important;
+    border-radius: 8px !important;
+    max-height: 300px !important;
+}
+
+.commodity-dropdown .VirtualizedSelectOption {
+    color: rgba(255,255,255,0.8) !important;
+    font-size: 12px !important;
+    padding: 8px 12px !important;
+}
+
+.commodity-dropdown .VirtualizedSelectFocusedOption {
+    background: rgba(255,255,255,0.1) !important;
+}
+
+.commodity-dropdown .Select-arrow-zone {
+    color: rgba(255,255,255,0.5) !important;
+}
+
+/* Light mode commodity dropdown */
+.theme-light .commodity-dropdown .Select-control {
+    background: rgba(0,0,0,0.05) !important;
+    border: 1px solid rgba(0,0,0,0.15) !important;
+}
+
+.theme-light .commodity-dropdown .Select-value-label,
+.theme-light .commodity-dropdown .Select-placeholder {
+    color: #333 !important;
+}
+
+.theme-light .commodity-dropdown .Select-menu-outer {
+    background: rgba(255, 255, 255, 0.98) !important;
+    border: 1px solid rgba(0,0,0,0.15) !important;
+}
+
+.theme-light .commodity-dropdown .VirtualizedSelectOption {
+    color: #333 !important;
+}
+
+.theme-light .commodity-dropdown .VirtualizedSelectFocusedOption {
+    background: rgba(0,0,0,0.05) !important;
+}
+
+.theme-light .commodity-dropdown .Select-arrow-zone {
+    color: rgba(0,0,0,0.5) !important;
+}
+
+/* Disabled commodity options (group headers) */
+.commodity-dropdown .VirtualizedSelectOption[aria-disabled="true"] {
+    color: rgba(255,255,255,0.4) !important;
+    font-weight: 600;
+    font-size: 11px !important;
+    pointer-events: none;
+}
+
+.theme-light .commodity-dropdown .VirtualizedSelectOption[aria-disabled="true"] {
+    color: rgba(0,0,0,0.4) !important;
+}
 """

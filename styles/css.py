@@ -94,7 +94,7 @@ CUSTOM_CSS = """
 .stats-panel-title {
     font-size: 11px;
     font-weight: 600;
-    color: rgba(255,255,255,0.5);
+    color: rgba(255,255,255,0.7);
     text-transform: uppercase;
     letter-spacing: 0.5px;
     margin-bottom: 12px;
@@ -121,7 +121,7 @@ CUSTOM_CSS = """
 
 .stat-label {
     font-size: 10px;
-    color: rgba(255,255,255,0.5);
+    color: rgba(255,255,255,0.7);
     text-transform: uppercase;
 }
 

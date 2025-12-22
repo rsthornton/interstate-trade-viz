@@ -66,7 +66,7 @@ def create_layout():
                     dbc.ButtonGroup([
                         dbc.Button("Domestic", id="btn-51x51", color="light", size="sm",
                                   outline=False, className="mode-btn"),
-                        dbc.Button("+ Intl", id="btn-52x52", color="light", size="sm",
+                        dbc.Button("+ International", id="btn-52x52", color="light", size="sm",
                                   outline=True, className="mode-btn"),
                     ], size="sm", className="w-100")
                 ], className="mb-3"),
@@ -76,11 +76,11 @@ def create_layout():
 
                 # Filtration slider (only for betweenness)
                 html.Div(id='filtration-section', children=[
-                    html.Label("Edge Filter", className="text-muted small mb-2 d-block"),
+                    html.Label("Trade Volume Filter", className="text-muted small mb-2 d-block"),
                     dcc.Slider(
                         id='filtration-slider',
                         min=0, max=3, step=1, value=0,
-                        marks={0: 'All', 1: 'Light', 2: 'Med', 3: 'Strong'},
+                        marks={0: 'All', 1: 'Top 75%', 2: 'Top 50%', 3: 'Top 25%'},
                         className="mb-2"
                     )
                 ], style={'display': 'none'}),
@@ -97,6 +97,7 @@ def create_layout():
 
                 # Edge count slider
                 html.Div(id='edge-count-section', children=[
+                    html.Label("Top N Flows", className="text-muted small mb-2 d-block"),
                     dcc.Slider(
                         id='edge-count-slider',
                         min=20, max=200, step=20, value=60,

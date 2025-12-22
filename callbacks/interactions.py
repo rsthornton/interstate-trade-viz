@@ -106,20 +106,20 @@ def register_callbacks(app):
             'eigenvector': {
                 'title': 'Eigenvector Centrality',
                 'text': 'Measures influence through connections to other economically important states. High scores indicate structural power through relationships with economic powerhouses.',
-                'insight_label': 'Key Finding',
+                'insight_label': 'Key Insight',
                 'insight_value': 'Robust across network changes (ρ > 0.98). Iowa: #31 GDP → #13 Eigenvector'
             },
             'out_degree': {
                 'title': 'Weighted Out-Degree',
                 'text': 'Quantifies direct distribution capacity—total outbound trade value. Closely tracks GDP but reveals trade-specific production capacity.',
-                'insight_label': 'Correlation',
-                'insight_value': 'High GDP alignment expected. Exceptions reveal trade-specific hubs.'
+                'insight_label': 'Key Insight',
+                'insight_value': 'High GDP alignment expected. Exceptions like FL (#4 GDP, #14 OutDeg) reveal consumption vs production hubs.'
             },
             'betweenness': {
                 'title': 'Betweenness Centrality',
                 'text': 'Identifies states occupying bridging positions between regional clusters. Uses weight inversion (high trade = short distance) for meaningful computation.',
-                'insight_label': 'Methodology',
-                'insight_value': 'Rankings stable under filtration. Try the Edge Filter slider to verify.'
+                'insight_label': 'Key Insight',
+                'insight_value': 'Rankings stable under filtration. CA and TX dominate as national trade bridges.'
             }
         }
 
@@ -293,16 +293,28 @@ def register_callbacks(app):
         Output('selected-state', 'data'),
         Input('network-map', 'clickData'),
         Input('close-drawer', 'n_clicks'),
+        Input('rankings-table', 'active_cell'),
+        State('rankings-table', 'data'),
         State('selected-state', 'data'),
         prevent_initial_call=True
     )
-    def handle_state_selection(click_data, close_clicks, current_state):
-        """Handle state selection from map clicks."""
+    def handle_state_selection(click_data, close_clicks, active_cell, table_data, current_state):
+        """Handle state selection from map clicks or table row clicks."""
         triggered = ctx.triggered_id
 
         if triggered == 'close-drawer':
             return None
 
+        # Handle table row click
+        if triggered == 'rankings-table' and active_cell:
+            row_idx = active_cell['row']
+            if table_data and row_idx < len(table_data):
+                new_state = table_data[row_idx]['Abbr']
+                if new_state == current_state:
+                    return None
+                return new_state
+
+        # Handle map click
         if click_data and click_data.get('points'):
             point = click_data['points'][0]
             if 'customdata' in point:
@@ -511,9 +523,10 @@ def register_callbacks(app):
         Output('rankings-table-container', 'children'),
         Input('selected-measure', 'data'),
         Input('dark-mode-toggle', 'value'),
+        Input('selected-state', 'data'),
     )
-    def update_rankings_table(measure, dark_mode):
-        """Update rankings table."""
+    def update_rankings_table(measure, dark_mode, selected_state):
+        """Update rankings table with row selection highlighting."""
         if measure is None:
             measure = 'eigenvector'
 
@@ -588,11 +601,24 @@ def register_callbacks(app):
                         'color': red_text
                     })
 
+        # Add highlighting for selected state row
+        selected_bg = 'rgba(255, 193, 7, 0.3)' if dark_mode else 'rgba(255, 193, 7, 0.4)'
+        if selected_state:
+            selected_idx = df[df['Abbr'] == selected_state].index.tolist()
+            if selected_idx:
+                style_data_conditional.append({
+                    'if': {'row_index': selected_idx[0]},
+                    'backgroundColor': selected_bg,
+                    'fontWeight': '600'
+                })
+
         return dash_table.DataTable(
+            id='rankings-table',
             data=df.to_dict('records'),
             columns=[{'name': c, 'id': c} for c in df.columns],
             sort_action='native',
-            style_table={'overflowX': 'auto'},
+            fixed_rows={'headers': True},
+            style_table={'overflowX': 'auto', 'overflowY': 'auto', 'maxHeight': '280px'},
             style_cell={
                 'textAlign': 'center',
                 'padding': '10px 8px',
@@ -600,12 +626,14 @@ def register_callbacks(app):
                 'backgroundColor': bg_color,
                 'color': text_color,
                 'border': 'none',
-                'borderBottom': f'1px solid {border_color}'
+                'borderBottom': f'1px solid {border_color}',
+                'cursor': 'pointer'
             },
             style_header={
                 'fontWeight': '600',
                 'backgroundColor': header_bg,
-                'borderBottom': f'1px solid {border_color}'
+                'borderBottom': f'1px solid {border_color}',
+                'cursor': 'default'
             },
             style_data_conditional=style_data_conditional,
             page_size=51

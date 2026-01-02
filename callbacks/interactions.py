@@ -143,6 +143,45 @@ def register_callbacks(app):
         return {'display': 'none'}
 
     # =========================================================================
+    # FLOW DIRECTION FILTER
+    # =========================================================================
+    @app.callback(
+        Output('flow-direction-section', 'style'),
+        Input('edge-toggle', 'value'),
+        Input('selected-state', 'data')
+    )
+    def toggle_flow_direction_section(show_edges, selected_state):
+        """Show flow direction filter only when edges enabled AND state selected."""
+        if show_edges and selected_state:
+            return {'display': 'block', 'marginTop': '8px'}
+        return {'display': 'none'}
+
+    @app.callback(
+        Output('btn-flow-both', 'outline'),
+        Output('btn-flow-out', 'outline'),
+        Output('btn-flow-in', 'outline'),
+        Output('flow-direction', 'data'),
+        Input('btn-flow-both', 'n_clicks'),
+        Input('btn-flow-out', 'n_clicks'),
+        Input('btn-flow-in', 'n_clicks'),
+        Input('selected-state', 'data'),
+    )
+    def update_flow_direction(n_both, n_out, n_in, selected_state):
+        """Update flow direction filter buttons."""
+        triggered = ctx.triggered_id
+
+        # Reset to 'both' when state selection changes
+        if triggered == 'selected-state' or triggered is None:
+            return False, True, True, 'both'
+
+        if triggered == 'btn-flow-out':
+            return True, False, True, 'outbound'
+        elif triggered == 'btn-flow-in':
+            return True, True, False, 'inbound'
+        else:
+            return False, True, True, 'both'
+
+    # =========================================================================
     # MAP UPDATE
     # =========================================================================
     @app.callback(
@@ -154,9 +193,10 @@ def register_callbacks(app):
         Input('selected-state', 'data'),
         Input('dark-mode-toggle', 'value'),
         Input('network-type', 'data'),
-        Input('selected-commodity', 'data')
+        Input('selected-commodity', 'data'),
+        Input('flow-direction', 'data')
     )
-    def update_map(measure, filtration, show_edges, edge_slider, selected_state, dark_mode, network_type, commodity):
+    def update_map(measure, filtration, show_edges, edge_slider, selected_state, dark_mode, network_type, commodity, flow_direction):
         """Update the map visualization."""
         if measure is None:
             measure = 'eigenvector'
@@ -206,7 +246,16 @@ def register_callbacks(app):
                 edge_data = []
                 for s, t, d in network.edges(data=True):
                     s_label, t_label = id_to_label.get(s), id_to_label.get(t)
-                    if s == state_id or t == state_id:
+
+                    # Apply flow direction filter
+                    if flow_direction == 'outbound':
+                        include_edge = (s == state_id)
+                    elif flow_direction == 'inbound':
+                        include_edge = (t == state_id)
+                    else:  # 'both'
+                        include_edge = (s == state_id or t == state_id)
+
+                    if include_edge:
                         if s_label and t_label and s_label in coords_lookup and t_label in coords_lookup:
                             edge_data.append({
                                 'source': s_label, 'target': t_label, 'weight': d['weight'],

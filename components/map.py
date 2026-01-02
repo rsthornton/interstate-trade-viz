@@ -79,26 +79,87 @@ def create_network_map(centralities, coordinates, centrality_measure='eigenvecto
     fig = go.Figure()
 
     # Add edges first (behind nodes)
-    # Note: Edge hover disabled for performance - each edge as separate trace is slow.
-    # V2: Consider bundling edges or using click-to-inspect pattern instead.
+    # Hover enabled via invisible midpoint markers - capped at 1000 edges for performance
     if show_edges and edge_data:
         max_weight = max(e['weight'] for e in edge_data) if edge_data else 1
+
+        # Group bidirectional edges by state pair for combined hover
+        edge_pairs = {}  # (stateA, stateB) sorted -> {out: weight, in: weight, coords}
+
         for edge in edge_data:
-            scaled_width = 0.5 + (edge['weight'] / max_weight) * 3
+            # Create canonical key (alphabetically sorted pair)
+            pair_key = tuple(sorted([edge['source'], edge['target']]))
+
+            if pair_key not in edge_pairs:
+                edge_pairs[pair_key] = {
+                    'coords': (edge['source_lat'], edge['source_lon'],
+                              edge['target_lat'], edge['target_lon']),
+                    'flows': {}
+                }
+
+            # Store flow by direction
+            direction = f"{edge['source']}→{edge['target']}"
+            edge_pairs[pair_key]['flows'][direction] = edge['weight']
+
+        # Now render edges and build hover layer
+        midpoint_lats = []
+        midpoint_lons = []
+        midpoint_texts = []
+        midpoint_sizes = []
+
+        for pair_key, pair_data in edge_pairs.items():
+            coords_data = pair_data['coords']
+            flows = pair_data['flows']
+            total_weight = sum(flows.values())
+
+            scaled_width = 0.5 + (total_weight / max_weight) * 3
 
             # Highlight edges connected to selected state
-            if selected_state and (edge['source'] == selected_state or edge['target'] == selected_state):
+            if selected_state and selected_state in pair_key:
                 edge_color = 'rgba(255, 193, 7, 0.7)'  # Gold for selected
                 scaled_width *= 1.5
             else:
                 edge_color = 'rgba(100, 149, 237, 0.3)' if dark_mode else 'rgba(70, 130, 180, 0.4)'
 
+            # Add line trace (visual)
             fig.add_trace(go.Scattermapbox(
-                lat=[edge['source_lat'], edge['target_lat']],
-                lon=[edge['source_lon'], edge['target_lon']],
+                lat=[coords_data[0], coords_data[2]],
+                lon=[coords_data[1], coords_data[3]],
                 mode='lines',
                 line=dict(width=scaled_width, color=edge_color),
                 hoverinfo='skip',
+                showlegend=False
+            ))
+
+            # Build hover text showing both directions
+            mid_lat = (coords_data[0] + coords_data[2]) / 2
+            mid_lon = (coords_data[1] + coords_data[3]) / 2
+
+            state_a, state_b = pair_key
+            flow_lines = []
+            for direction, weight in sorted(flows.items()):
+                flow_lines.append(f"{direction}: ${weight/1e9:.1f}B")
+
+            hover_text = f"<b>{state_a} ↔ {state_b}</b><br>" + "<br>".join(flow_lines)
+
+            midpoint_lats.append(mid_lat)
+            midpoint_lons.append(mid_lon)
+            midpoint_texts.append(hover_text)
+            midpoint_sizes.append(max(scaled_width * 4, 15))  # Min size for hit area
+
+        # Add single trace with all midpoints for efficient hover
+        if midpoint_lats:
+            fig.add_trace(go.Scattermapbox(
+                lat=midpoint_lats,
+                lon=midpoint_lons,
+                mode='markers',
+                marker=dict(
+                    size=midpoint_sizes,
+                    color='rgba(0,0,0,0)',  # Invisible
+                    opacity=0
+                ),
+                text=midpoint_texts,
+                hovertemplate='%{text}<extra></extra>',
                 showlegend=False
             ))
 

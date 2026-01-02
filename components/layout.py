@@ -32,6 +32,7 @@ def create_layout():
         dcc.Store(id='selected-measure', data='eigenvector'),
         dcc.Store(id='network-type', data='51x51'),  # '51x51' or '52x52'
         dcc.Store(id='selected-commodity', data='all'),  # SCTG code or 'all'
+        dcc.Store(id='flow-direction', data='both'),  # 'both', 'outbound', 'inbound'
 
         # Main container
         html.Div(id='main-container', className='theme-light', children=[
@@ -176,6 +177,19 @@ def create_layout():
                             5: '1k'
                         },
                     )
+                ], style={'display': 'none'}),
+
+                # Flow direction filter (only when state selected + edges shown)
+                html.Div(id='flow-direction-section', children=[
+                    html.Label("Flow Direction", className="text-muted small mb-2 d-block"),
+                    dbc.ButtonGroup([
+                        dbc.Button("All", id="btn-flow-both", color="light", size="sm",
+                                  outline=False, className="mode-btn"),
+                        dbc.Button("Out →", id="btn-flow-out", color="light", size="sm",
+                                  outline=True, className="mode-btn"),
+                        dbc.Button("← In", id="btn-flow-in", color="light", size="sm",
+                                  outline=True, className="mode-btn"),
+                    ], size="sm", className="w-100")
                 ], style={'display': 'none'}),
 
                 html.Hr(style={'borderColor': 'rgba(255,255,255,0.1)', 'margin': '12px 0'}),

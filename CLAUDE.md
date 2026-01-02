@@ -63,7 +63,7 @@ Always use project venv:
 ```bash
 source venv/bin/activate
 # or
-/Users/home/Desktop/interstate-trade/venv/bin/python
+/Users/home/Desktop/halcyonic-projects/interstate-trade/venv/bin/python
 ```
 
 Never install packages globally.

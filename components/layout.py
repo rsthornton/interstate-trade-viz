@@ -131,6 +131,17 @@ def create_layout():
                         ],
                         target="info-commodity", trigger="hover", placement="right"
                     ),
+                    # Quick-select category buttons
+                    html.Div([
+                        dbc.Button("All", id="btn-cat-all", color="light", size="sm",
+                                  outline=False, className="me-1 mb-1", style={'fontSize': '11px'}),
+                        dbc.Button("Agri", id="btn-cat-agri", color="light", size="sm",
+                                  outline=True, className="me-1 mb-1", style={'fontSize': '11px'}),
+                        dbc.Button("Energy", id="btn-cat-energy", color="light", size="sm",
+                                  outline=True, className="me-1 mb-1", style={'fontSize': '11px'}),
+                        dbc.Button("Mfg", id="btn-cat-mfg", color="light", size="sm",
+                                  outline=True, className="mb-1", style={'fontSize': '11px'}),
+                    ], className="mb-2", style={'display': 'flex', 'flexWrap': 'wrap'}),
                     dcc.Dropdown(
                         id='commodity-dropdown',
                         options=commodity_options,

@@ -52,15 +52,49 @@ def register_callbacks(app):
         Output('selected-commodity', 'data'),
         Output('btn-52x52', 'disabled'),
         Output('commodity-section', 'title'),
+        Output('commodity-dropdown', 'value'),
+        Output('btn-cat-all', 'outline'),
+        Output('btn-cat-agri', 'outline'),
+        Output('btn-cat-energy', 'outline'),
+        Output('btn-cat-mfg', 'outline'),
         Input('commodity-dropdown', 'value'),
+        Input('btn-cat-all', 'n_clicks'),
+        Input('btn-cat-agri', 'n_clicks'),
+        Input('btn-cat-energy', 'n_clicks'),
+        Input('btn-cat-mfg', 'n_clicks'),
     )
-    def update_commodity_selection(commodity):
-        """Update commodity selection and disable international toggle when commodity selected."""
+    def update_commodity_selection(dropdown_value, n_all, n_agri, n_energy, n_mfg):
+        """Update commodity selection from dropdown or quick-select buttons."""
+        triggered = ctx.triggered_id
+
+        # Map buttons to commodity codes (using grouped codes)
+        button_map = {
+            'btn-cat-all': 'all',
+            'btn-cat-agri': '01-05',      # Agriculture (main crops/livestock)
+            'btn-cat-energy': '15-19',    # Energy (coal, oil, gas)
+            'btn-cat-mfg': '35-38',       # Manufacturing (machinery, electronics)
+        }
+
+        # Determine which commodity to use
+        if triggered in button_map:
+            commodity = button_map[triggered]
+        else:
+            commodity = dropdown_value
+
+        # Determine button states
+        btn_states = {
+            'all': commodity == 'all',
+            'agri': commodity in ['01-05', '01', '02', '03', '04', '05', '06', '07', '08', '09', '06-09'],
+            'energy': commodity in ['15-19', '15', '16', '17', '18', '19', '10-14', '10', '11', '12', '13', '14'],
+            'mfg': commodity in ['35-38', '34', '35', '36', '37', '38', '31-34', '31', '32', '33'],
+        }
+
         if commodity and commodity != 'all':
-            # Commodity data only available for domestic network
             commodity_name = SCTG_NAMES.get(commodity, commodity)
-            return commodity, True, f"Showing {commodity_name} trade network (domestic only)"
-        return 'all', False, ""
+            return (commodity, True, f"Showing {commodity_name} trade network (domestic only)",
+                   commodity, not btn_states['all'], not btn_states['agri'],
+                   not btn_states['energy'], not btn_states['mfg'])
+        return 'all', False, "", 'all', False, True, True, True
 
     # =========================================================================
     # NETWORK TYPE TOGGLE (51x51 vs 52x52)

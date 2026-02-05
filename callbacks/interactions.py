@@ -4,7 +4,7 @@ from dash import html, callback, Output, Input, State, ctx, dash_table, no_updat
 from components.map import create_network_map
 from data_loader import (
     centralities_base, centralities_51x51, centralities_52x52, rank_changes,
-    coords, network, gdp, filtration_data,
+    coords, network, gdp, filtration_data, commodity_edges,
     get_top_edges, get_centralities_for_commodity, SCTG_NAMES
 )
 
@@ -270,36 +270,59 @@ def register_callbacks(app):
         edge_data = None
         if show_edges:
             if selected_state:
-                id_to_label = dict(zip(centralities['state_id'], centralities['state']))
-                label_to_id = {v: k for k, v in id_to_label.items()}
-                state_id = label_to_id.get(selected_state)
-
                 coords_lookup = {r['state_abbr']: {'lat': r['lat'], 'lon': r['lon']}
                                 for _, r in coords.iterrows()}
 
-                edge_data = []
-                for s, t, d in network.edges(data=True):
-                    s_label, t_label = id_to_label.get(s), id_to_label.get(t)
-
-                    # Apply flow direction filter
+                if commodity != 'all' and commodity_edges is not None:
+                    # Use commodity-specific edges for selected state
+                    filtered = commodity_edges[commodity_edges['commodity_code'] == commodity]
                     if flow_direction == 'outbound':
-                        include_edge = (s == state_id)
+                        filtered = filtered[filtered['source'] == selected_state]
                     elif flow_direction == 'inbound':
-                        include_edge = (t == state_id)
-                    else:  # 'both'
-                        include_edge = (s == state_id or t == state_id)
+                        filtered = filtered[filtered['target'] == selected_state]
+                    else:
+                        filtered = filtered[(filtered['source'] == selected_state) | (filtered['target'] == selected_state)]
 
-                    if include_edge:
-                        if s_label and t_label and s_label in coords_lookup and t_label in coords_lookup:
+                    edge_data = []
+                    for _, row in filtered.iterrows():
+                        src, tgt = row['source'], row['target']
+                        if src in coords_lookup and tgt in coords_lookup:
                             edge_data.append({
-                                'source': s_label, 'target': t_label, 'weight': d['weight'],
-                                'source_lat': coords_lookup[s_label]['lat'],
-                                'source_lon': coords_lookup[s_label]['lon'],
-                                'target_lat': coords_lookup[t_label]['lat'],
-                                'target_lon': coords_lookup[t_label]['lon']
+                                'source': src, 'target': tgt, 'weight': row['weight'],
+                                'source_lat': coords_lookup[src]['lat'],
+                                'source_lon': coords_lookup[src]['lon'],
+                                'target_lat': coords_lookup[tgt]['lat'],
+                                'target_lon': coords_lookup[tgt]['lon']
                             })
+                else:
+                    # Aggregate network edges for selected state
+                    id_to_label = dict(zip(centralities['state_id'], centralities['state']))
+                    label_to_id = {v: k for k, v in id_to_label.items()}
+                    state_id = label_to_id.get(selected_state)
+
+                    edge_data = []
+                    for s, t, d in network.edges(data=True):
+                        s_label, t_label = id_to_label.get(s), id_to_label.get(t)
+
+                        # Apply flow direction filter
+                        if flow_direction == 'outbound':
+                            include_edge = (s == state_id)
+                        elif flow_direction == 'inbound':
+                            include_edge = (t == state_id)
+                        else:  # 'both'
+                            include_edge = (s == state_id or t == state_id)
+
+                        if include_edge:
+                            if s_label and t_label and s_label in coords_lookup and t_label in coords_lookup:
+                                edge_data.append({
+                                    'source': s_label, 'target': t_label, 'weight': d['weight'],
+                                    'source_lat': coords_lookup[s_label]['lat'],
+                                    'source_lon': coords_lookup[s_label]['lon'],
+                                    'target_lat': coords_lookup[t_label]['lat'],
+                                    'target_lon': coords_lookup[t_label]['lon']
+                                })
             else:
-                edge_data = get_top_edges(network, coords, centralities, top_n=edge_count)
+                edge_data = get_top_edges(network, coords, centralities, top_n=edge_count, commodity=commodity)
 
         fig = create_network_map(
             centralities, coords, measure,

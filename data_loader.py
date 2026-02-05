@@ -73,6 +73,18 @@ def load_commodity_centralities(data_dir="data"):
     return df
 
 
+def load_commodity_edges(data_dir="data"):
+    """Load commodity-specific edge data from CSV.
+
+    Returns:
+        DataFrame with columns: source, target, commodity_code, weight
+        (source/target are state abbreviations like 'TX', 'CA')
+    """
+    file_path = Path(data_dir) / "commodity_edges.csv"
+    df = pd.read_csv(file_path, dtype={'commodity_code': str})
+    return df
+
+
 # Commodity groupings for UI (SCTG codes grouped by category)
 COMMODITY_GROUPS = {
     'Agriculture & Food': ['01', '02', '03', '04', '05', '06', '07', '08', '09', '01-05', '06-09'],
@@ -163,12 +175,42 @@ SCTG_NAMES = {
 }
 
 
-def get_top_edges(network, coords, centralities, top_n=50):
-    """Get the top N edges by weight for visualization."""
-    id_to_label = dict(zip(centralities['state_id'], centralities['state']))
+def get_top_edges(network, coords, centralities, top_n=50, commodity='all'):
+    """Get the top N edges by weight for visualization.
+
+    Args:
+        network: NetworkX graph (used when commodity='all')
+        coords: State coordinates DataFrame
+        centralities: Centralities DataFrame (for state_id → label mapping)
+        top_n: Number of top edges to return
+        commodity: SCTG commodity code or 'all' for aggregate network
+    """
     coords_renamed = coords.rename(columns={'state_abbr': 'state'})
     coord_lookup = {row['state']: {'lat': row['lat'], 'lon': row['lon']}
                     for _, row in coords_renamed.iterrows()}
+
+    if commodity != 'all' and commodity_edges is not None:
+        # Use pre-loaded commodity edge data
+        filtered = commodity_edges[commodity_edges['commodity_code'] == commodity]
+        filtered = filtered.nlargest(top_n, 'weight')
+
+        top_edges = []
+        for _, row in filtered.iterrows():
+            src, tgt = row['source'], row['target']
+            if src in coord_lookup and tgt in coord_lookup:
+                top_edges.append({
+                    'source': src,
+                    'target': tgt,
+                    'weight': row['weight'],
+                    'source_lat': coord_lookup[src]['lat'],
+                    'source_lon': coord_lookup[src]['lon'],
+                    'target_lat': coord_lookup[tgt]['lat'],
+                    'target_lon': coord_lookup[tgt]['lon']
+                })
+        return top_edges
+
+    # Aggregate network (original behavior)
+    id_to_label = dict(zip(centralities['state_id'], centralities['state']))
 
     edges_with_weight = [
         (source, target, data['weight'])
@@ -211,6 +253,7 @@ network = load_network()
 filtration_data = load_filtration_data()
 gdp = load_gdp()
 commodity_centralities_raw = load_commodity_centralities()
+commodity_edges = load_commodity_edges()
 
 # Load both network configurations
 centralities_51x51 = load_centralities(network_type="51x51")

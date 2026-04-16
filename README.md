@@ -68,7 +68,7 @@ interstate-trade/
 
 ### Plotly Cloud (Current)
 
-Live at: https://e3613c3b-348f-45d9-8a15-989fb9a415f1.plotly.app/
+Live at: https://us-trade.plotly.app/
 
 ```bash
 pip install "dash[cloud]"
